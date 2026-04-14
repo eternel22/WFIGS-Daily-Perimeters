@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WFIGS Daily Perimeters — Data Dictionary</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f5f5f5; color: #222; }
+  header { background: #8b1a1a; color: white; padding: 1.5rem 2rem; }
+  header h1 { margin: 0; font-size: 1.4rem; }
+  header p { margin: 0.3rem 0 0; font-size: 0.85rem; opacity: 0.85; }
+  .controls { padding: 1rem 2rem; background: white; border-bottom: 1px solid #ddd; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .controls input { padding: 0.4rem 0.75rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; width: 280px; }
+  .controls select { padding: 0.4rem 0.75rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+  .controls label { font-size: 0.85rem; color: #555; }
+  #count { font-size: 0.85rem; color: #666; margin-left: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  thead { background: #2c2c2c; color: white; position: sticky; top: 0; z-index: 1; }
+  thead th { padding: 0.65rem 1rem; text-align: left; font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap; }
+  thead th:hover { background: #444; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  tbody tr:hover { background: #fff3e0; }
+  td { padding: 0.55rem 1rem; vertical-align: top; border-bottom: 1px solid #eee; }
+  td.col-name { font-family: monospace; font-size: 0.82rem; color: #1a1a6e; white-space: nowrap; }
+  td.col-type { font-family: monospace; font-size: 0.8rem; color: #555; white-space: nowrap; }
+  td.col-group { white-space: nowrap; }
+  td.col-desc { color: #333; max-width: 520px; }
+  .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.75rem; font-weight: 600; }
+  .badge-poly { background: #d1ecf1; color: #0c5460; }
+  .badge-attr { background: #d4edda; color: #155724; }
+  .badge-meta { background: #e2e3e5; color: #383d41; }
+  .badge-geo  { background: #fff3cd; color: #856404; }
+  .src-official { font-size: 0.72rem; color: #888; font-style: italic; }
+  .src-inferred { font-size: 0.72rem; color: #b07a00; font-style: italic; }
+  .hidden { display: none; }
+  .wrapper { padding: 0 0 2rem; }
+  /* Stats cell */
+  td.col-stats { min-width: 200px; max-width: 260px; font-size: 0.78rem; color: #333; }
+  .stat-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.05rem 0.5rem; }
+  .stat-grid span:nth-child(odd) { color: #888; text-align: right; white-space: nowrap; }
+  .stat-grid span:nth-child(even) { font-family: monospace; }
+  .null-bar-wrap { margin-top: 0.3rem; background: #eee; border-radius: 2px; height: 5px; width: 100%; }
+  .null-bar { height: 5px; border-radius: 2px; background: #e07b39; }
+  .null-label { font-size: 0.7rem; color: #999; }
+  .top-pills { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.25rem; }
+  .pill { background: #e8e8e8; border-radius: 3px; padding: 0.1rem 0.35rem; font-size: 0.7rem; white-space: nowrap; }
+  .pill em { color: #888; font-style: normal; }
+  .no-stats { color: #bbb; font-style: italic; font-size: 0.75rem; }
+  .stats-pending { color: #bbb; font-style: italic; font-size: 0.75rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>WFIGS Daily Perimeters — Data Dictionary</h1>
+  <p>WFIGS_Daily_Perimeters_Public · FeatureServer/0 &nbsp;|&nbsp; Sources: NWCG Geospatial Data Layer Standard, IRWIN field definitions</p>
+</header>
+<div class="controls">
+  <label>Search: <input type="text" id="search" placeholder="column name or keyword…"></label>
+  <label>Group: <select id="groupFilter">
+    <option value="">All</option>
+    <option value="poly">poly_ (polygon geometry)</option>
+    <option value="attr">attr_ (incident attributes)</option>
+    <option value="meta">meta (record metadata)</option>
+    <option value="geo">geo (geometry / shape)</option>
+  </select></label>
+  <span id="count"></span>
+</div>
+<div class="wrapper">
+<table id="dict">
+<thead>
+  <tr>
+    <th>Column</th>
+    <th>Type</th>
+    <th>Group</th>
+    <th>Description</th>
+    <th>Stats</th>
+  </tr>
+</thead>
+<tbody id="tbody">
+</tbody>
+</table>
+</div>
+
+<script src="column_stats.js"></script>
+<script>
+const OFFICIAL = "official NWCG / IRWIN docs";
+const INFERRED = "inferred from name";
+
+const rows = [
+  // ── Polygon geometry fields ────────────────────────────────────────────────
+  ["OBJECTID",                "int32",   "meta", "Standard ArcGIS internal object identifier.", INFERRED],
+  ["poly_SourceOID",          "float64", "poly", "OBJECTID of the source record in the dataset providing the polygon.", OFFICIAL],
+  ["poly_IncidentName",       "object",  "poly", "Incident name as stored in the polygon source record.", OFFICIAL],
+  ["poly_FeatureCategory",    "object",  "poly", "Type of wildland fire polygon. Values include: Wildfire Final Fire Perimeter, Wildfire Daily Fire Perimeter, Prescribed Fire, IR Heat Perimeter, Unburned Island, Proposed/Completed Burnout, etc.", OFFICIAL],
+  ["poly_MapMethod",          "object",  "poly", "Method used to derive the polygon geometry. Values: GPS-Driven, GPS-Flight, GPS-Walked, Hand Sketch, Digitized-Image, Infrared Image, Modeled, Mixed Methods, Phone/Tablet, Other, etc.", OFFICIAL],
+  ["poly_GISAcres",           "float64", "poly", "Acreage of the polygon as stored in the polygon source record (not system-calculated).", OFFICIAL],
+  ["poly_DeleteThis",         "object",  "poly", "Flag for mobile data collection editors to remove a feature added in error. Values: Yes / No.", OFFICIAL],
+  ["poly_FeatureAccess",      "object",  "poly", "Controls who can view the feature. Values: Public, Cooperators, Incident, Restricted.", OFFICIAL],
+  ["poly_FeatureStatus",      "object",  "poly", "Status of the polygon feature (e.g. active, final).", INFERRED],
+  ["poly_IsVisible",          "object",  "poly", "Flag for mapping display visibility. Values: Yes / No.", OFFICIAL],
+  ["poly_CreateDate",         "float64", "poly", "UTC timestamp when the source polygon record was created.", OFFICIAL],
+  ["poly_DateCurrent",        "float64", "poly", "UTC timestamp of the last edit to the source polygon record.", OFFICIAL],
+  ["poly_PolygonDateTime",    "float64", "poly", "Date and time the polygon data was captured in the field (ISO 8601 UTC).", OFFICIAL],
+  ["poly_IRWINID",            "object",  "poly", "IRWIN ID stored in the polygon record. Links to the IRWIN incident.", OFFICIAL],
+  ["poly_FORID",              "object",  "poly", "FORID (Fire Operations Reporting ID) stored in the polygon record.", OFFICIAL],
+  ["poly_Acres_AutoCalc",     "float64", "poly", "System-calculated acreage of the polygon (geodesic WGS84 acres).", OFFICIAL],
+  ["poly_SourceGlobalID",     "object",  "poly", "GlobalID of the source record in the dataset providing the polygon.", OFFICIAL],
+  ["poly_Source",             "object",  "poly", "Name of the source dataset providing the polygon.", OFFICIAL],
+
+  // ── Incident attribute fields ──────────────────────────────────────────────
+  ["attr_SourceOID",                    "int32",   "attr", "OBJECTID of the source record in the dataset providing the incident attribution.", OFFICIAL],
+  ["attr_ABCDMisc",                     "object",  "attr", "USDA FS FireCode for tracking cost of emergency initial attack suppression on A–D size-class fires on FS lands.", OFFICIAL],
+  ["attr_ADSPermissionState",           "object",  "attr", "Permission hierarchy applied when a system uses the IRWIN UpdateIncident operation.", OFFICIAL],
+  ["attr_CalculatedAcres",              "float64", "attr", "System-calculated acreage of the incident area.", INFERRED],
+  ["attr_ContainmentDateTime",          "float64", "attr", "Date and time the wildfire was declared contained.", OFFICIAL],
+  ["attr_ControlDateTime",              "float64", "attr", "Date and time the wildfire was declared under control.", OFFICIAL],
+  ["attr_CreatedBySystem",              "object",  "attr", "ArcGIS Server username of the system that created the IRWIN incident record.", OFFICIAL],
+  ["attr_IncidentSize",                 "float64", "attr", "Reported fire size in acres. Minimum value is 0.1.", OFFICIAL],
+  ["attr_DiscoveryAcres",               "float64", "attr", "Estimated acres burning at the time of first discovery/report (includes unburned islands). Minimum 0.1.", OFFICIAL],
+  ["attr_DispatchCenterID",             "object",  "attr", "Unique identifier of the dispatch center responsible for supporting the incident.", OFFICIAL],
+  ["attr_EstimatedCostToDate",          "float64", "attr", "Total estimated cost of the incident to date (USD).", OFFICIAL],
+  ["attr_Fatalities",                   "float64", "attr", "Number of fatalities associated with the incident.", INFERRED],
+  ["attr_FinalAcres",                   "float64", "attr", "Reported final acreage of the incident.", OFFICIAL],
+  ["attr_FFReportApprovedByTitle",      "object",  "attr", "Title of the person who approved the final fire report.", OFFICIAL],
+  ["attr_FFReportApprovedByUnit",       "object",  "attr", "NWCG Unit ID of the individual who approved the final fire report.", OFFICIAL],
+  ["attr_FFReportApprovedDate",         "float64", "attr", "Date the final fire report was approved.", OFFICIAL],
+  ["attr_FireBehaviorGeneral",          "object",  "attr", "General category describing how the fire reacts to fuel, weather, and topography.", OFFICIAL],
+  ["attr_FireBehaviorGeneral1",         "object",  "attr", "More specific sub-category of general fire behavior (first modifier).", OFFICIAL],
+  ["attr_FireBehaviorGeneral2",         "object",  "attr", "More specific sub-category of general fire behavior (second modifier).", OFFICIAL],
+  ["attr_FireBehaviorGeneral3",         "object",  "attr", "More specific sub-category of general fire behavior (third modifier).", OFFICIAL],
+  ["attr_FireCause",                    "object",  "attr", "Broad cause classification: Human, Natural, or Unknown.", OFFICIAL],
+  ["attr_FireCauseGeneral",             "object",  "attr", "General agency or circumstance that started the fire (e.g. Lightning, Equipment Use, Arson).", OFFICIAL],
+  ["attr_FireCauseSpecific",            "object",  "attr", "Further categorization of the general fire cause.", OFFICIAL],
+  ["attr_FireCode",                     "object",  "attr", "Interagency code for tracking emergency fire suppression expenditures.", OFFICIAL],
+  ["attr_FireDepartmentID",             "object",  "attr", "USFA national Fire Department database identifier (used when no NWCG Unit ID is available).", OFFICIAL],
+  ["attr_FireDiscoveryDateTime",        "int64",   "attr", "Date and time the fire was reported as discovered or confirmed to exist (also used as start date).", OFFICIAL],
+  ["attr_FireMgmtComplexity",           "object",  "attr", "Highest management level used to manage the wildland fire event (e.g. Type 1, Type 2).", OFFICIAL],
+  ["attr_FireOutDateTime",              "float64", "attr", "Date and time the fire was declared out.", OFFICIAL],
+  ["attr_FireStrategyConfinePercent",   "float64", "attr", "Percentage of the incident area managed under a 'Confine' suppression strategy.", OFFICIAL],
+  ["attr_FireStrategyFullSuppPrcnt",    "float64", "attr", "Percentage of the incident area managed under a 'Full Suppression' strategy.", OFFICIAL],
+  ["attr_FireStrategyMonitorPercent",   "float64", "attr", "Percentage of the incident area managed under a 'Monitor' strategy.", OFFICIAL],
+  ["attr_FireStrategyPointZonePrcnt",   "float64", "attr", "Percentage of the incident area managed under a 'Point Zone Protection' strategy.", OFFICIAL],
+  ["attr_FSJobCode",                    "object",  "attr", "Forest Service job accounting code for the incident (FS-specific; 2-char prefix on FireCode).", OFFICIAL],
+  ["attr_FSOverrideCode",               "object",  "attr", "Forest Service override code for the incident (FS-specific; 4-char suffix on FireCode, e.g. 1502 when FS assists DOI).", OFFICIAL],
+  ["attr_GACC",                         "object",  "attr", "Geographic Area Coordination Center code at point of origin. Values: AICC, EACC, GBCC, ONCC, NRCC, NWCC, RMCC, SACC, OSCC, SWCC.", OFFICIAL],
+  ["attr_ICS209ReportDateTime",         "float64", "attr", "Date and time of the latest approved ICS-209 situation report.", OFFICIAL],
+  ["attr_ICS209RptForTimePeriodFrom",   "float64", "attr", "Start of the time period covered by the current ICS-209 submission.", OFFICIAL],
+  ["attr_ICS209RptForTimePeriodTo",     "float64", "attr", "End of the time period covered by the current ICS-209 submission.", OFFICIAL],
+  ["attr_ICS209ReportStatus",           "object",  "attr", "Version of the ICS-209 report: Initial, Update, or Final.", OFFICIAL],
+  ["attr_IncidentManagementOrg",        "object",  "attr", "Incident management organization assigned (Type 1/2/3 IMT, Unified Command, NIMO, etc.). Null if none assigned.", OFFICIAL],
+  ["attr_IncidentName",                 "object",  "attr", "Official name assigned to the incident by the responsible land management unit.", OFFICIAL],
+  ["attr_IncidentShortDescription",     "object",  "attr", "General descriptive location (e.g. '5 miles NE of Flagstaff').", OFFICIAL],
+  ["attr_IncidentTypeCategory",         "object",  "attr", "Sub-group of the incident kind code (Event Category, further breaks down IncidentTypeKind).", OFFICIAL],
+  ["attr_IncidentTypeKind",             "object",  "attr", "High-level type of incident or planned event (e.g. Wildfire, Prescribed Fire).", OFFICIAL],
+  ["attr_InitialLatitude",              "float64", "attr", "Latitude of the initial reported point of origin (decimal degrees).", OFFICIAL],
+  ["attr_InitialLongitude",             "float64", "attr", "Longitude of the initial reported point of origin (decimal degrees).", OFFICIAL],
+  ["attr_InitialResponseAcres",         "float64", "attr", "Estimated acres burning at initial response / IC size-up (includes unburned islands). Minimum 0.1.", OFFICIAL],
+  ["attr_InitialResponseDateTime",      "float64", "attr", "Date and time of initial IC response and size-up.", OFFICIAL],
+  ["attr_IrwinID",                      "object",  "attr", "Unique GUID assigned to each incident record in IRWIN.", OFFICIAL],
+  ["attr_IsFireCauseInvestigated",      "float64", "attr", "Whether an investigation to determine fire cause is underway or completed (0/1).", OFFICIAL],
+  ["attr_IsFireCodeRequested",          "float64", "attr", "Whether a fire code has been requested for the incident (0/1).", INFERRED],
+  ["attr_IsFSAssisted",                 "float64", "attr", "Whether the Forest Service provided assistance outside their jurisdiction (0/1).", OFFICIAL],
+  ["attr_IsMultiJurisdictional",        "float64", "attr", "Whether the incident spans multiple jurisdictions (0/1).", OFFICIAL],
+  ["attr_IsReimbursable",               "float64", "attr", "Whether incident costs may be another agency's responsibility (0/1).", OFFICIAL],
+  ["attr_IsTrespass",                   "float64", "attr", "Whether a trespass claim or bill is being pursued (0/1).", OFFICIAL],
+  ["attr_IsUnifiedCommand",             "float64", "attr", "Whether the incident is managed under Unified Command (multiple agencies / cross-jurisdictional) (0/1).", OFFICIAL],
+  ["attr_LocalIncidentIdentifier",      "object",  "attr", "Local dispatch number uniquely identifying the incident within a local fire management organization for the calendar year.", OFFICIAL],
+  ["attr_ModifiedBySystem",             "object",  "attr", "ArcGIS Server username of the system that last modified the IRWIN incident record.", OFFICIAL],
+  ["attr_PercentContained",             "float64", "attr", "Percent of the incident perimeter that is no longer active.", OFFICIAL],
+  ["attr_PercentPerimToBeContained",    "float64", "attr", "Percent of perimeter still to be completed (used for full suppression, point/zone, and confine strategies).", OFFICIAL],
+  ["attr_POOCity",                      "object",  "attr", "Closest city to the incident point of origin (POO).", OFFICIAL],
+  ["attr_POOCounty",                    "object",  "attr", "County name at the point of origin.", OFFICIAL],
+  ["attr_POODispatchCenterID",          "object",  "attr", "Unique identifier for the dispatch center intersecting the point of origin.", OFFICIAL],
+  ["attr_POOFips",                      "object",  "attr", "FIPS code (5-digit: 2-char state + 3-char county) for the county at point of origin.", OFFICIAL],
+  ["attr_POOJurisdictionalAgency",      "object",  "attr", "Agency with land and resource management responsibility at point of origin (by federal, state, or local law).", OFFICIAL],
+  ["attr_POOJurisdictionalUnit",        "object",  "attr", "NWCG Unit ID of the unit with jurisdiction over the point of origin.", OFFICIAL],
+  ["attr_POOJurisdictUnitParentUnit",   "object",  "attr", "Unit ID of the parent entity (e.g. BLM State Office, USFS Regional Office) over the Jurisdictional Unit.", OFFICIAL],
+  ["attr_POOLandownerCategory",         "object",  "attr", "Specific classification of land ownership (deeded owner) at point of origin.", OFFICIAL],
+  ["attr_POOLandownerKind",             "object",  "attr", "Broad classification of land ownership at point of origin (e.g. Federal, State, Private).", OFFICIAL],
+  ["attr_POOLegalDescPrincipalMerid",   "object",  "attr", "Principal meridian of the public land survey (section/township/range) legal description at point of origin.", OFFICIAL],
+  ["attr_POOLegalDescQtr",              "object",  "attr", "Quarter section of the legal description at point of origin.", OFFICIAL],
+  ["attr_POOLegalDescQtrQtr",           "object",  "attr", "Quarter-quarter section of the legal description at point of origin.", OFFICIAL],
+  ["attr_POOLegalDescRange",            "object",  "attr", "Range of the legal description at point of origin.", OFFICIAL],
+  ["attr_POOLegalDescSection",          "float64", "attr", "Section number of the legal description at point of origin.", OFFICIAL],
+  ["attr_POOLegalDescTownship",         "object",  "attr", "Township of the legal description at point of origin.", OFFICIAL],
+  ["attr_POOPredictiveServiceAreaID",   "object",  "attr", "Predictive Service Area ID at point of origin (PSAs are climate-based geographic areas derived from RAWS data).", OFFICIAL],
+  ["attr_POOProtectingAgency",          "object",  "attr", "Agency with fire protection responsibility at point of origin.", OFFICIAL],
+  ["attr_POOProtectingUnit",            "object",  "attr", "NWCG Unit responsible for direct incident management at point of origin (protection may be re-assigned by agreement).", OFFICIAL],
+  ["attr_POOState",                     "object",  "attr", "Two-letter state alpha code at point of origin.", OFFICIAL],
+  ["attr_PredominantFuelGroup",         "object",  "attr", "Majority fuel model type in the incident area, grouped into one of seven categories.", OFFICIAL],
+  ["attr_PredominantFuelModel",         "object",  "attr", "Fuel model best representing the majority of the incident area.", OFFICIAL],
+  ["attr_PrimaryFuelModel",             "object",  "attr", "Fuel model representing the primary carrier of fire for the reporting period.", OFFICIAL],
+  ["attr_SecondaryFuelModel",           "object",  "attr", "Fuel model representing the secondary carrier of fire for the reporting period.", OFFICIAL],
+  ["attr_TotalIncidentPersonnel",       "float64", "attr", "Total personnel assigned (overhead, crew, helicopter crew, engine crew, camp crew, etc.).", OFFICIAL],
+  ["attr_UniqueFireIdentifier",         "object",  "attr", "Unique fire ID: yyyy-SSUUUU-xxxxxx (year, 5–6 char POO protecting unit, 6–10 char local incident ID).", OFFICIAL],
+  ["attr_FORID",                        "object",  "attr", "Unique identifier assigned to each incident in the FODR (Fire Operations Reporting) database.", OFFICIAL],
+  ["attr_WFDSSDecisionStatus",          "object",  "attr", "State of the WFDSS (Wildland Fire Decision Support System) decision for the incident (helps resolve conflicting records).", OFFICIAL],
+  ["attr_EstimatedFinalCost",           "float64", "attr", "Estimated total final cost of the incident (USD).", INFERRED],
+  ["attr_OrganizationalAssessment",     "object",  "attr", "Part of the NWCG Wildland Fire Risk and Complexity Assessment (RCA, Jan 2014). Guides Agency Administrators in management organization selection. May differ from current Incident Management Organization.", OFFICIAL],
+  ["attr_StratDecisionPublishDate",     "float64", "attr", "Date Agency Administrators published/approved the Strategic Decision document. New decisions can be created until incident is called out.", OFFICIAL],
+  ["attr_CreatedOnDateTime_dt",         "int64",   "attr", "Date/time the IRWIN incident record was created.", OFFICIAL],
+  ["attr_ModifiedOnDateTime_dt",        "int64",   "attr", "Date/time the IRWIN incident record was last modified.", OFFICIAL],
+  ["attr_Source",                       "object",  "attr", "Source dataset from which the incident attribution is derived.", OFFICIAL],
+  ["attr_ActiveFireCandidate",          "float64", "attr", "Flag indicating whether the incident is a candidate for active fire status (0/1).", INFERRED],
+  ["attr_IsCpxChild",                   "float64", "attr", "Whether the incident is part of a Complex (0 = no, 1 = yes).", OFFICIAL],
+  ["attr_CpxName",                      "object",  "attr", "Incident name of the parent Complex.", OFFICIAL],
+  ["attr_CpxID",                        "object",  "attr", "IRWIN ID (GUID) of the parent Complex record.", OFFICIAL],
+  ["attr_SourceGlobalID",               "object",  "attr", "GlobalID of the source record in the attribution source dataset.", OFFICIAL],
+
+  // ── Record metadata / geometry ─────────────────────────────────────────────
+  ["GlobalID",      "object",   "meta", "Globally unique identifier for this feature in the hosted feature service.", INFERRED],
+  ["Shape__Area",   "float64",  "geo",  "GIS-calculated area of the polygon (service units).", INFERRED],
+  ["Shape__Length", "float64",  "geo",  "GIS-calculated perimeter length of the polygon (service units).", INFERRED],
+  ["BurnPeriod",    "int32",    "meta", "Sequential burn period number for the daily perimeter snapshot.", INFERRED],
+  ["AcreageChange", "float64",  "meta", "Change in acreage from the previous daily perimeter for this fire.", INFERRED],
+  ["geometry",      "geometry", "geo",  "Polygon geometry of the fire perimeter (WGS 84 / EPSG:4326).", INFERRED],
+];
+
+function badge(group) {
+  const cls = { poly: "badge-poly", attr: "badge-attr", meta: "badge-meta", geo: "badge-geo" }[group] || "";
+  const labels = { poly: "poly", attr: "attr", meta: "meta", geo: "geo" };
+  return `<span class="badge ${cls}">${labels[group] || group}</span>`;
+}
+
+function srcTag(src) {
+  if (src === OFFICIAL) return `<br><span class="src-official">&#10003; ${src}</span>`;
+  return `<br><span class="src-inferred">&#9888; ${src}</span>`;
+}
+
+function fmt(n) {
+  if (n === undefined || n === null) return "—";
+  if (Math.abs(n) >= 1e6) return n.toLocaleString(undefined, {maximumFractionDigits: 0});
+  if (Math.abs(n) >= 1000) return n.toLocaleString(undefined, {maximumFractionDigits: 1});
+  if (Number.isInteger(n)) return n.toString();
+  return n.toLocaleString(undefined, {maximumFractionDigits: 3});
+}
+
+function statsHtml(col) {
+  if (typeof COLUMN_STATS === "undefined") return `<span class="stats-pending">run notebook cell to generate</span>`;
+  const s = COLUMN_STATS[col];
+  if (!s) return `<span class="no-stats">—</span>`;
+
+  const nullBar = s.null_pct > 0
+    ? `<div class="null-bar-wrap"><div class="null-bar" style="width:${Math.max(s.null_pct,2)}%"></div></div>
+       <span class="null-label">${s.null_pct}% null (${s.null_count.toLocaleString()} / ${s.count.toLocaleString()})</span>`
+    : `<span class="null-label">no nulls</span>`;
+
+  if (s.kind === "geometry") return `<span class="no-stats">polygon geometry</span>`;
+
+  if (s.kind === "datetime") {
+    return `<div class="stat-grid">
+      <span>from</span><span>${s.min ?? "—"}</span>
+      <span>to</span><span>${s.max ?? "—"}</span>
+    </div>${nullBar}`;
+  }
+
+  if (s.kind === "numeric") {
+    return `<div class="stat-grid">
+      <span>mean</span><span>${fmt(s.mean)}</span>
+      <span>median</span><span>${fmt(s.median)}</span>
+      <span>min</span><span>${fmt(s.min)}</span>
+      <span>max</span><span>${fmt(s.max)}</span>
+    </div>${nullBar}`;
+  }
+
+  if (s.kind === "categorical") {
+    const pills = (s.top_values || []).map(([v, n]) =>
+      `<span class="pill">${v} <em>${n.toLocaleString()}</em></span>`).join("");
+    return `<div><span class="null-label">${s.unique.toLocaleString()} unique values</span></div>
+      <div class="top-pills">${pills}</div>${nullBar}`;
+  }
+
+  return `<span class="no-stats">—</span>`;
+}
+
+const tbody = document.getElementById("tbody");
+function render(data) {
+  tbody.innerHTML = data.map(([col, type, group, desc, src]) => `
+    <tr data-group="${group}">
+      <td class="col-name">${col}</td>
+      <td class="col-type">${type}</td>
+      <td class="col-group">${badge(group)}</td>
+      <td class="col-desc">${desc}${srcTag(src)}</td>
+      <td class="col-stats">${statsHtml(col)}</td>
+    </tr>`).join("");
+  document.getElementById("count").textContent = `Showing ${data.length} of ${rows.length} columns`;
+}
+
+render(rows);
+
+function filter() {
+  const q = document.getElementById("search").value.toLowerCase();
+  const g = document.getElementById("groupFilter").value;
+  const filtered = rows.filter(([col,,group,desc]) =>
+    (!q || col.toLowerCase().includes(q) || desc.toLowerCase().includes(q)) &&
+    (!g || group === g)
+  );
+  render(filtered);
+}
+
+document.getElementById("search").addEventListener("input", filter);
+document.getElementById("groupFilter").addEventListener("change", filter);
+</script>
+</body>
+</html>

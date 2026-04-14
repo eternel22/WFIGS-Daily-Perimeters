@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WFIGS Fire Explorer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #f4f4f4; color: #222; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+header { background: #8b1a1a; color: #fff; padding: 0.7rem 1.5rem; flex-shrink: 0; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+header h1 { font-size: 1.1rem; white-space: nowrap; }
+.hcontrols { display: flex; gap: 0.6rem; align-items: center; flex: 1; flex-wrap: wrap; }
+.hcontrols input { padding: 0.3rem 0.7rem; border: none; border-radius: 4px; font-size: 0.85rem; width: 260px; }
+.hcontrols select { padding: 0.3rem 0.5rem; border: none; border-radius: 4px; font-size: 0.85rem; }
+#result-count { font-size: 0.8rem; opacity: 0.8; margin-left: auto; white-space: nowrap; }
+
+/* ── Main layout ───────────────────────────────────────────────────────────── */
+main { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+/* ── Fire list ─────────────────────────────────────────────────────────────── */
+#list-panel { display: flex; flex-direction: column; background: #fff; border-bottom: 2px solid #c0392b; flex-shrink: 0; max-height: 40vh; }
+.table-wrap { overflow-y: auto; flex: 1; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+thead { position: sticky; top: 0; background: #2c2c2c; color: #fff; z-index: 2; }
+th { padding: 0.5rem 0.8rem; text-align: left; cursor: pointer; user-select: none; white-space: nowrap; }
+th:hover { background: #444; }
+th .sort-icon { opacity: 0.4; margin-left: 4px; }
+th.sorted .sort-icon { opacity: 1; }
+tbody tr { cursor: pointer; border-bottom: 1px solid #eee; }
+tbody tr:hover { background: #fef3f3; }
+tbody tr.selected { background: #fde8e8; font-weight: 600; }
+td { padding: 0.4rem 0.8rem; white-space: nowrap; }
+td.fire-name { white-space: normal; max-width: 260px; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.no-poly { color: #bbb; }
+.tag-state { background: #eee; border-radius: 3px; padding: 0.1rem 0.35rem; font-size: 0.75rem; }
+
+/* ── Pagination ────────────────────────────────────────────────────────────── */
+.pagination { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 1rem; background: #f7f7f7; border-top: 1px solid #ddd; font-size: 0.8rem; flex-shrink: 0; }
+.pg-btn { padding: 0.2rem 0.55rem; border: 1px solid #ccc; border-radius: 3px; background: #fff; cursor: pointer; font-size: 0.8rem; }
+.pg-btn:hover:not(:disabled) { background: #8b1a1a; color: #fff; border-color: #8b1a1a; }
+.pg-btn:disabled { opacity: 0.35; cursor: default; }
+.pg-btn.active { background: #8b1a1a; color: #fff; border-color: #8b1a1a; }
+.pg-spacer { color: #aaa; }
+#pg-info { color: #666; margin-left: auto; }
+
+/* ── Detail panel ──────────────────────────────────────────────────────────── */
+#detail-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#detail-empty { display: flex; align-items: center; justify-content: center; flex: 1; color: #aaa; font-size: 1rem; }
+#detail-body { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+#detail-header { background: #2c2c2c; color: #fff; padding: 0.5rem 1rem; font-size: 0.9rem; display: flex; align-items: center; gap: 0.8rem; flex-shrink: 0; }
+#detail-header .fire-uid { font-family: monospace; font-size: 0.78rem; opacity: 0.7; }
+#detail-header .fire-state-badge { background: #8b1a1a; border-radius: 3px; padding: 0.1rem 0.5rem; font-size: 0.78rem; }
+#detail-header .close-btn { margin-left: auto; background: none; border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 3px; padding: 0.15rem 0.5rem; cursor: pointer; font-size: 0.8rem; }
+#detail-header .close-btn:hover { background: rgba(255,255,255,0.15); }
+#detail-cols { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Chart pane ────────────────────────────────────────────────────────────── */
+#chart-pane { flex: 1; padding: 0.75rem 1rem; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid #ddd; background: #fff; }
+#chart-pane h3 { font-size: 0.8rem; color: #555; margin-bottom: 0.4rem; font-weight: 600; }
+#chart-toggles { display: flex; gap: 0.35rem; margin-bottom: 0.4rem; flex-wrap: wrap; }
+.toggle-btn { padding: 0.15rem 0.55rem; border-radius: 3px; font-size: 0.75rem; cursor: pointer; border: 1.5px solid; background: #fff; transition: background 0.15s, color 0.15s; }
+.toggle-btn.on  { color: #fff; }
+.toggle-btn.off { background: #fff; }
+#chart-wrap { flex: 1; position: relative; min-height: 0; }
+#myChart { width: 100% !important; height: 100% !important; }
+
+/* ── Map pane ──────────────────────────────────────────────────────────────── */
+#map-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #fff; }
+#map { flex: 1; }
+#map-nav { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.4rem 0.8rem; background: #f7f7f7; border-top: 1px solid #ddd; flex-shrink: 0; font-size: 0.82rem; }
+#map-nav-row { display: flex; align-items: center; gap: 0.5rem; }
+#nav-slider { flex: 1; accent-color: #8b1a1a; cursor: pointer; min-width: 0; }
+#nav-slider:disabled { opacity: 0.35; cursor: default; }
+.nav-btn { padding: 0.2rem 0.7rem; border: 1px solid #ccc; border-radius: 3px; background: #fff; cursor: pointer; font-size: 0.82rem; }
+.nav-btn:hover:not(:disabled) { background: #8b1a1a; color: #fff; border-color: #8b1a1a; }
+.nav-btn:disabled { opacity: 0.35; cursor: default; }
+#nav-label { flex: 1; text-align: center; color: #444; }
+#nav-show-all { padding: 0.2rem 0.6rem; border: 1px solid #8b1a1a; color: #8b1a1a; border-radius: 3px; background: #fff; cursor: pointer; font-size: 0.78rem; }
+#nav-show-all:hover, #nav-show-all.active { background: #8b1a1a; color: #fff; }
+#map-legend { display: flex; align-items: center; gap: 0.4rem; padding: 0 0.8rem 0.35rem; font-size: 0.72rem; color: #666; flex-shrink: 0; }
+#legend-bar { height: 8px; flex: 1; border-radius: 3px; background: linear-gradient(to right, hsl(270,85%,48%), hsl(200,85%,48%), hsl(130,85%,48%), hsl(60,85%,48%), hsl(0,85%,48%)); }
+
+/* ── Spinner ───────────────────────────────────────────────────────────────── */
+#spinner { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 9999; align-items: center; justify-content: center; }
+#spinner.show { display: flex; }
+.spin-box { background: #fff; padding: 1.5rem 2rem; border-radius: 6px; font-size: 0.9rem; color: #555; }
+
+/* ── Loading state ─────────────────────────────────────────────────────────── */
+#not-ready { display: none; text-align: center; padding: 2rem; color: #888; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔥 WFIGS Fire Explorer</h1>
+  <div class="hcontrols">
+    <input type="text" id="search" placeholder="Search fire name or UID…" oninput="onSearch()">
+    <select id="state-filter" onchange="onSearch()"><option value="">All states</option></select>
+    <label style="font-size:0.8rem;opacity:0.8">
+      <input type="checkbox" id="has-poly-filter" onchange="onSearch()"> Polygon only
+    </label>
+    <span id="result-count"></span>
+  </div>
+</header>
+
+<main>
+  <div id="not-ready">
+    <p><strong>fires_index.js not found.</strong></p>
+    <p style="margin-top:.5rem">Run <code>python export_fire_data.py</code> first, then reload this page.</p>
+  </div>
+
+  <div id="list-panel">
+    <div class="table-wrap">
+      <table id="fire-table">
+        <thead>
+          <tr>
+            <th onclick="sortBy('name')"   data-col="name" >Fire Name <span class="sort-icon">↕</span></th>
+            <th onclick="sortBy('state')"  data-col="state">State <span class="sort-icon">↕</span></th>
+            <th onclick="sortBy('start')"  data-col="start">Start <span class="sort-icon">↕</span></th>
+            <th onclick="sortBy('end')"    data-col="end"  >End <span class="sort-icon">↕</span></th>
+            <th onclick="sortBy('n')"      data-col="n"    >Reports <span class="sort-icon">↕</span></th>
+            <th onclick="sortBy('np')"     data-col="np"   >w/ Polygon <span class="sort-icon">↕</span></th>
+            <th onclick="sortBy('acres')"  data-col="acres">Final Acres <span class="sort-icon">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="fire-tbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <div id="detail-panel">
+    <div id="detail-empty">← Select a fire to explore its evolution</div>
+    <div id="detail-body">
+      <div id="detail-header">
+        <span id="dh-name"></span>
+        <span id="dh-state" class="fire-state-badge"></span>
+        <span id="dh-uid" class="fire-uid"></span>
+        <button class="close-btn" onclick="closeDetail()">✕ Close</button>
+      </div>
+      <div id="detail-cols">
+        <div id="chart-pane">
+          <h3>Acreage &amp; Personnel over time</h3>
+          <div id="chart-toggles">
+            <button class="toggle-btn on"  id="tog-is" style="border-color:#c0392b;background:#c0392b;" onclick="toggleSeries(0)">Reported Size</button>
+            <button class="toggle-btn off" id="tog-ga" style="border-color:#e67e22;"                    onclick="toggleSeries(1)">GIS Acres</button>
+            <button class="toggle-btn on"  id="tog-aa" style="border-color:#f39c12;background:#f39c12;" onclick="toggleSeries(2)">AutoCalc Acres</button>
+          </div>
+          <div id="chart-wrap"><canvas id="myChart"></canvas></div>
+        </div>
+        <div id="map-pane">
+          <div id="map"></div>
+          <div id="map-legend">
+            <span>Oldest</span>
+            <div id="legend-bar"></div>
+            <span>Newest</span>
+          </div>
+          <div id="map-nav">
+            <div id="map-nav-row">
+              <button class="nav-btn" id="nav-prev" onclick="navigate(-1)">← Prev</button>
+              <input type="range" id="nav-slider" min="0" max="0" value="0" disabled oninput="onSlider(this.value)">
+              <button class="nav-btn" id="nav-next" onclick="navigate(+1)">Next →</button>
+              <button id="nav-show-all" class="active" onclick="showAll()">Show All</button>
+            </div>
+            <span id="nav-label" style="text-align:center;color:#444;">All periods</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="spinner"><div class="spin-box">Loading fire data…</div></div>
+
+<!-- Loaded conditionally below -->
+<script>
+// ── Check if fires_index.js was loaded ────────────────────────────────────────
+window.onerror = function(msg, src) {
+  if (src && src.includes("fires_index")) {
+    document.getElementById("not-ready").style.display = "block";
+    document.getElementById("list-panel").style.display = "none";
+    document.getElementById("detail-panel").style.display = "none";
+  }
+};
+</script>
+<script src="fires_index.js" onerror="document.getElementById('not-ready').style.display='block';document.getElementById('list-panel').style.display='none';document.getElementById('detail-panel').style.display='none';"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// ── Guard: index not loaded ────────────────────────────────────────────────
+if (typeof FIRES_INDEX === "undefined") {
+  document.getElementById("not-ready").style.display = "block";
+  document.getElementById("list-panel").style.display = "none";
+  document.getElementById("detail-panel").style.display = "none";
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 50;
+let filtered   = [];
+let sortCol    = "start";
+let sortAsc    = false;
+let curPage    = 0;
+let selectedFn = null;
+let leafMap    = null;
+let chartInst  = null;
+let polyLayers = [];
+let curPeriod  = -1;   // -1 = all
+let fireData   = null;
+
+// ── Populate state filter ──────────────────────────────────────────────────
+(function initFilters() {
+  if (typeof FIRES_INDEX === "undefined") return;
+  const states = [...new Set(FIRES_INDEX.map(f => f.state).filter(Boolean))].sort();
+  const sel = document.getElementById("state-filter");
+  states.forEach(s => {
+    const o = document.createElement("option");
+    o.value = o.textContent = s;
+    sel.appendChild(o);
+  });
+  onSearch();
+})();
+
+// ── Search / filter ────────────────────────────────────────────────────────
+function onSearch() {
+  const q     = document.getElementById("search").value.toLowerCase();
+  const state = document.getElementById("state-filter").value;
+  const polyOnly = document.getElementById("has-poly-filter").checked;
+
+  filtered = (FIRES_INDEX || []).filter(f =>
+    (!q || f.name.toLowerCase().includes(q) || f.uid.toLowerCase().includes(q)) &&
+    (!state || f.state === state) &&
+    (!polyOnly || f.np > 0)
+  );
+
+  sortData();
+  curPage = 0;
+  renderTable();
+}
+
+// ── Sort ───────────────────────────────────────────────────────────────────
+function sortBy(col) {
+  if (sortCol === col) { sortAsc = !sortAsc; }
+  else { sortCol = col; sortAsc = col === "name" || col === "state"; }
+  sortData();
+  curPage = 0;
+  renderTable();
+}
+
+function sortData() {
+  const dir = sortAsc ? 1 : -1;
+  filtered.sort((a, b) => {
+    let av = a[sortCol], bv = b[sortCol];
+    if (av == null) av = sortAsc ? "\uFFFF" : "";
+    if (bv == null) bv = sortAsc ? "\uFFFF" : "";
+    if (typeof av === "number" || typeof bv === "number") {
+      av = av ?? -Infinity; bv = bv ?? -Infinity;
+      return (av - bv) * dir;
+    }
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+
+  // Update sort icons
+  document.querySelectorAll("th[data-col]").forEach(th => {
+    const col = th.dataset.col;
+    th.classList.toggle("sorted", col === sortCol);
+    th.querySelector(".sort-icon").textContent = col !== sortCol ? "↕" : sortAsc ? "↑" : "↓";
+  });
+}
+
+// ── Table render ───────────────────────────────────────────────────────────
+function fmtAcres(v) {
+  if (v == null) return '<span class="no-poly">—</span>';
+  return v >= 1000 ? v.toLocaleString(undefined, {maximumFractionDigits: 0}) : v.toFixed(1);
+}
+
+function renderTable() {
+  const start = curPage * PAGE_SIZE;
+  const page  = filtered.slice(start, start + PAGE_SIZE);
+  const tbody = document.getElementById("fire-tbody");
+
+  tbody.innerHTML = page.map(f => `
+    <tr onclick="loadFire('${f.fn}','${escHtml(f.name)}','${f.state||''}','${f.uid}')"
+        class="${f.fn === selectedFn ? 'selected' : ''}" data-fn="${f.fn}">
+      <td class="fire-name">${escHtml(f.name)}</td>
+      <td>${f.state ? `<span class="tag-state">${f.state}</span>` : ''}</td>
+      <td>${f.start || '—'}</td>
+      <td>${f.end   || '—'}</td>
+      <td class="num">${f.n}</td>
+      <td class="num">${f.np > 0 ? f.np : '<span class="no-poly">—</span>'}</td>
+      <td class="num">${fmtAcres(f.acres)}</td>
+    </tr>`).join("");
+
+  document.getElementById("result-count").textContent =
+    `${filtered.length.toLocaleString()} fire${filtered.length !== 1 ? 's' : ''}`;
+
+  renderPagination();
+}
+
+// ── Pagination ─────────────────────────────────────────────────────────────
+function renderPagination() {
+  const total = Math.ceil(filtered.length / PAGE_SIZE);
+  const pg    = document.getElementById("pagination");
+  if (total <= 1) { pg.innerHTML = ""; return; }
+
+  const btn = (label, page, active, disabled) =>
+    `<button class="pg-btn${active ? ' active' : ''}" onclick="goPage(${page})"
+      ${disabled ? 'disabled' : ''}>${label}</button>`;
+
+  let html = btn("‹ Prev", curPage - 1, false, curPage === 0);
+  const pages = paginationPages(curPage, total);
+  let prev = null;
+  for (const p of pages) {
+    if (prev !== null && p - prev > 1) html += `<span class="pg-spacer">…</span>`;
+    html += btn(p + 1, p, p === curPage, false);
+    prev = p;
+  }
+  html += btn("Next ›", curPage + 1, false, curPage === total - 1);
+  html += `<span id="pg-info">Page ${curPage + 1} of ${total}</span>`;
+  pg.innerHTML = html;
+}
+
+function paginationPages(cur, total) {
+  const s = new Set([0, total - 1]);
+  for (let d = -2; d <= 2; d++) { const p = cur + d; if (p >= 0 && p < total) s.add(p); }
+  return [...s].sort((a, b) => a - b);
+}
+
+function goPage(p) { curPage = p; renderTable(); }
+
+// ── Load fire detail ───────────────────────────────────────────────────────
+function loadFire(fn, name, state, uid) {
+  // Update selected row highlight
+  selectedFn = fn;
+  document.querySelectorAll("#fire-tbody tr").forEach(tr => {
+    tr.classList.toggle("selected", tr.dataset.fn === fn);
+  });
+
+  // Show header
+  document.getElementById("dh-name").textContent  = name;
+  document.getElementById("dh-uid").textContent   = uid;
+  const stateEl = document.getElementById("dh-state");
+  stateEl.textContent = state;
+  stateEl.style.display = state ? "" : "none";
+
+  // Show spinner and inject script
+  document.getElementById("spinner").classList.add("show");
+
+  // Remove previous injected script
+  const old = document.getElementById("fire-script");
+  if (old) old.remove();
+
+  // Set up callback
+  window.__fd = function(data) {
+    document.getElementById("spinner").classList.remove("show");
+    fireData = data;
+    renderDetail(data);
+  };
+
+  const s = document.createElement("script");
+  s.id  = "fire-script";
+  s.src = `fires/${fn}.js?_=${Date.now()}`;
+  s.onerror = () => {
+    document.getElementById("spinner").classList.remove("show");
+    alert(`Could not load fires/${fn}.js — run export_fire_data.py first.`);
+  };
+  document.body.appendChild(s);
+}
+
+// ── Render detail ──────────────────────────────────────────────────────────
+function renderDetail(data) {
+  document.getElementById("detail-empty").style.display = "none";
+  document.getElementById("detail-body").style.display  = "flex";
+
+  buildIndexMaps(data);
+  renderChart(data.series);
+  renderMap(data.polygons);
+}
+
+// ── Chart ──────────────────────────────────────────────────────────────────
+// ── Cross-link state ──────────────────────────────────────────────────────────
+let seriesToPoly = [];   // seriesToPoly[seriesIdx] = polygonIdx (-1 if no geometry)
+let polyToSeries = [];   // polyToSeries[polyIdx]   = seriesIdx
+
+function buildIndexMaps(data) {
+  const polyByBp = {};
+  data.polygons.forEach((p, i) => { if (p.bp != null) polyByBp[p.bp] = i; });
+  seriesToPoly = data.series.map(s => s.bp != null ? (polyByBp[s.bp] ?? -1) : -1);
+  polyToSeries = data.polygons.map(p => p.bp != null
+    ? data.series.findIndex(s => s.bp === p.bp) : -1);
+}
+
+// ── Vertical line plugin ──────────────────────────────────────────────────────
+const verticalLinePlugin = {
+  id: "verticalLine",
+  afterDraw(chart) {
+    const idx = chart._lineIdx;
+    if (idx == null || idx < 0) return;
+    let x = null;
+    for (let di = 0; di < chart.data.datasets.length; di++) {
+      if (!chart.isDatasetVisible(di)) continue;
+      const pt = chart.getDatasetMeta(di).data[idx];
+      if (pt) { x = pt.x; break; }
+    }
+    if (x == null) return;
+    const yA = chart.scales.yA;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, yA.top);
+    ctx.lineTo(x, yA.bottom);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(139,26,26,0.8)";
+    ctx.setLineDash([5, 4]);
+    ctx.stroke();
+    ctx.restore();
+  },
+};
+Chart.register(verticalLinePlugin);
+
+// Called from map navigation to move the chart line
+function updateChartLine(polyIdx) {
+  if (!chartInst) return;
+  const si = polyIdx >= 0 ? (polyToSeries[polyIdx] ?? -1) : -1;
+  chartInst._lineIdx = si >= 0 ? si : null;
+  chartInst.update("none");
+}
+
+const TOGGLE_META = [
+  { id: "tog-is", color: "#c0392b" },
+  { id: "tog-ga", color: "#e67e22" },
+  { id: "tog-aa", color: "#f39c12" },
+];
+
+function toggleSeries(idx) {
+  if (!chartInst) return;
+  const visible = chartInst.isDatasetVisible(idx);
+  chartInst.setDatasetVisibility(idx, !visible);
+  chartInst.update();
+  const btn = document.getElementById(TOGGLE_META[idx].id);
+  const color = TOGGLE_META[idx].color;
+  if (visible) {  // was visible, now hidden
+    btn.classList.replace("on", "off");
+    btn.style.background = "#fff";
+    btn.style.color = color;
+  } else {        // was hidden, now visible
+    btn.classList.replace("off", "on");
+    btn.style.background = color;
+    btn.style.color = "#fff";
+  }
+}
+
+function renderChart(series) {
+  const labels = series.map(s => s.d || (s.bp != null ? `Period ${s.bp}` : ""));
+  const nullify = arr => arr.map(v => v ?? null);
+
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+
+  const ctx = document.getElementById("myChart").getContext("2d");
+  chartInst = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Reported Size (attr_IncidentSize)",
+          data: nullify(series.map(s => s.is)),
+          borderColor: "#c0392b", backgroundColor: "rgba(192,57,43,0.08)",
+          borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
+          yAxisID: "yA", spanGaps: true,
+        },
+        {
+          label: "GIS Acres (poly_GISAcres)",
+          data: nullify(series.map(s => s.ga)),
+          borderColor: "#e67e22", backgroundColor: "rgba(230,126,34,0.08)",
+          borderWidth: 2, pointRadius: 2, borderDash: [4, 3],
+          yAxisID: "yA", spanGaps: true, hidden: true,
+        },
+        {
+          label: "AutoCalc Acres (poly_Acres_AutoCalc)",
+          data: nullify(series.map(s => s.aa)),
+          borderColor: "#f39c12", backgroundColor: "rgba(243,156,18,0.08)",
+          borderWidth: 1.5, pointRadius: 2, borderDash: [2, 4],
+          yAxisID: "yA", spanGaps: true,
+        },
+        {
+          label: "Personnel (attr_TotalIncidentPersonnel)",
+          data: nullify(series.map(s => s.tp)),
+          borderColor: "#2980b9", backgroundColor: "rgba(41,128,185,0.08)",
+          borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
+          yAxisID: "yP", spanGaps: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      onHover: (event, elements) => {
+        if (!elements.length) return;
+        const si = elements[0].index;
+        if (chartInst._lineIdx === si) return;
+        chartInst._lineIdx = si;
+        chartInst.draw();
+        const pi = seriesToPoly[si];
+        if (pi >= 0) softHighlightPoly(pi);
+      },
+      plugins: {
+        legend: { labels: { font: { size: 10 }, boxWidth: 22, padding: 8 } },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const s = series[items[0].dataIndex];
+              const bp = s.bp != null ? `Period ${s.bp}` : "";
+              const d  = s.d  || "";
+              return bp && d ? `${bp} · ${d}` : bp || d;
+            },
+            label: ctx => {
+              const v = ctx.parsed.y;
+              if (v == null) return null;
+              const suffix = ctx.dataset.yAxisID === "yP" ? " personnel" : " acres";
+              return `${ctx.dataset.label}: ${v.toLocaleString(undefined, {maximumFractionDigits:1})}${suffix}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxTicksLimit: 12, maxRotation: 35 } },
+        yA: {
+          position: "left",
+          title: { display: true, text: "Acres", font: { size: 10 } },
+          ticks: { font: { size: 10 } },
+        },
+        yP: {
+          position: "right",
+          title: { display: true, text: "Personnel", font: { size: 10 } },
+          ticks: { font: { size: 10 } },
+          grid: { drawOnChartArea: false },
+        },
+      },
+    },
+  });
+}
+
+// ── Map ────────────────────────────────────────────────────────────────────
+function periodColor(i, n) {
+  if (n <= 1) return "hsl(0, 85%, 48%)";
+  const hue = 270 * (1 - i / (n - 1));   // oldest → purple (270), newest → red (0)
+  return `hsl(${hue}, 85%, 48%)`;
+}
+
+function renderMap(polygons) {
+  // Init Leaflet once
+  if (!leafMap) {
+    leafMap = L.map("map", { center: [38, -100], zoom: 4, zoomControl: true });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors",
+      maxZoom: 19,
+    }).addTo(leafMap);
+  } else {
+    polyLayers.forEach(l => leafMap.removeLayer(l));
+  }
+
+  polyLayers = [];
+  curPeriod  = -1;
+
+  const nav = document.getElementById("map-nav");
+
+  const slider = document.getElementById("nav-slider");
+
+  if (!polygons || polygons.length === 0) {
+    document.getElementById("nav-label").textContent = "No polygon data";
+    document.getElementById("nav-prev").disabled = true;
+    document.getElementById("nav-next").disabled = true;
+    document.getElementById("nav-show-all").disabled = true;
+    slider.disabled = true;
+    return;
+  }
+
+  const n = polygons.length;
+
+  // Add newest first → goes to bottom; oldest added last → sits on top
+  // This creates the "onion ring" colour effect matching the reference image.
+  for (let i = n - 1; i >= 0; i--) {
+    const color = periodColor(i, n);
+    const layer = L.geoJSON(polygons[i].g, {
+      style: { fillColor: color, fillOpacity: 0.55, color: "#fff", weight: 0.8 },
+    });
+    layer.addTo(leafMap);
+    polyLayers.unshift(layer); // keep polyLayers[i] = polygons[i]
+  }
+
+  // Fit bounds to outermost polygon (newest = largest)
+  try { leafMap.fitBounds(polyLayers[n - 1].getBounds(), { padding: [20, 20] }); }
+  catch (e) {}
+
+  // Slider setup
+  slider.min = 0;
+  slider.max = n - 1;
+  slider.value = 0;
+  slider.disabled = n <= 1;
+
+  // Nav controls
+  document.getElementById("nav-prev").disabled = false;
+  document.getElementById("nav-next").disabled = false;
+  document.getElementById("nav-show-all").disabled = false;
+  updateNavLabel();
+}
+
+function showAll() {
+  curPeriod = -1;
+  polyLayers.forEach(layer => {
+    layer.setStyle({ fillOpacity: 0.55, weight: 0.8, color: "#fff" });
+  });
+  updateNavLabel();
+  document.getElementById("nav-show-all").classList.add("active");
+  if (chartInst) { chartInst._lineIdx = null; chartInst.update("none"); }
+}
+
+function navigate(dir) {
+  const n = polyLayers.length;
+  if (n === 0) return;
+  curPeriod = curPeriod === -1
+    ? (dir > 0 ? 0 : n - 1)
+    : Math.max(0, Math.min(n - 1, curPeriod + dir));
+  applyPeriod();
+}
+
+function onSlider(val) {
+  const n = polyLayers.length;
+  if (n === 0) return;
+  curPeriod = Math.max(0, Math.min(n - 1, parseInt(val, 10)));
+  applyPeriod();
+}
+
+function applyPeriod() {
+  polyLayers.forEach((layer, i) => {
+    if (i === curPeriod) {
+      layer.setStyle({ fillOpacity: 0.75, weight: 2.5, color: "#333" });
+      layer.bringToFront();
+    } else {
+      layer.setStyle({ fillOpacity: 0.12, weight: 0.5, color: "#aaa" });
+    }
+  });
+  document.getElementById("nav-slider").value = curPeriod;
+  updateNavLabel();
+  document.getElementById("nav-show-all").classList.remove("active");
+  updateChartLine(curPeriod);
+}
+
+// Soft highlight from chart hover: accent border but keep all polygons visible
+function softHighlightPoly(pi) {
+  if (curPeriod !== -1) return; // don't override a user-selected period
+  polyLayers.forEach((layer, i) => {
+    layer.setStyle(i === pi
+      ? { fillOpacity: 0.75, weight: 2.5, color: "#333" }
+      : { fillOpacity: 0.45, weight: 0.8, color: "#fff" });
+  });
+}
+
+function updateNavLabel() {
+  const n = polyLayers.length;
+  const el = document.getElementById("nav-label");
+  const prev = document.getElementById("nav-prev");
+  const next = document.getElementById("nav-next");
+
+  if (curPeriod === -1 || n === 0) {
+    el.textContent = n === 0 ? "No polygon data" : `All ${n} period${n > 1 ? "s" : ""}`;
+    prev.disabled = n === 0;
+    next.disabled = n === 0;
+    return;
+  }
+
+  const p = fireData?.polygons?.[curPeriod];
+  const date    = p?.d || "—";
+  const acres   = p?.aa ?? p?.ga;   // poly_Acres_AutoCalc (geodesic area of polygon), fallback to poly_GISAcres
+  const acreStr = acres != null ? ` · ${acres.toLocaleString(undefined, {maximumFractionDigits: 0})} acres (polygon)` : "";
+  el.textContent = `Period ${curPeriod + 1} of ${n} · ${date}${acreStr}`;
+
+  prev.disabled = curPeriod === 0;
+  next.disabled = curPeriod === n - 1;
+  document.getElementById("nav-slider").value = curPeriod;
+}
+
+function closeDetail() {
+  document.getElementById("detail-empty").style.display = "";
+  document.getElementById("detail-body").style.display  = "none";
+  document.querySelectorAll("#fire-tbody tr").forEach(tr => tr.classList.remove("selected"));
+  selectedFn = null;
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Force Leaflet resize when detail panel appears ─────────────────────────
+const detailBody = document.getElementById("detail-body");
+const resizeObs = new ResizeObserver(() => { if (leafMap) leafMap.invalidateSize(); });
+resizeObs.observe(detailBody);
+</script>
+</body>
+</html>
