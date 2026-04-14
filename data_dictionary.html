@@ -52,6 +52,7 @@
 <header>
   <h1>WFIGS Daily Perimeters — Data Dictionary</h1>
   <p>WFIGS_Daily_Perimeters_Public · FeatureServer/0 &nbsp;|&nbsp; Sources: NWCG Geospatial Data Layer Standard, IRWIN field definitions</p>
+  <p id="dd-stats" style="margin-top:0.2rem;font-size:0.8rem;opacity:0.75;"></p>
 </header>
 <div class="controls">
   <label>Search: <input type="text" id="search" placeholder="column name or keyword…"></label>
@@ -81,6 +82,7 @@
 </div>
 
 <script src="column_stats.js"></script>
+<script src="fires_index.js"></script>
 <script>
 const OFFICIAL = "official NWCG / IRWIN docs";
 const INFERRED = "inferred from name";
@@ -299,6 +301,18 @@ function filter() {
 
 document.getElementById("search").addEventListener("input", filter);
 document.getElementById("groupFilter").addEventListener("change", filter);
+
+// ── Summary stats in header ───────────────────────────────────────────────────
+(function() {
+  const parts = [];
+  if (typeof FIRES_INDEX !== "undefined") {
+    const totalReports = FIRES_INDEX.reduce((s, f) => s + f.n, 0);
+    parts.push(`${FIRES_INDEX.length.toLocaleString()} fires`);
+    parts.push(`${totalReports.toLocaleString()} reports`);
+  }
+  if (parts.length)
+    document.getElementById("dd-stats").textContent = parts.join(" · ");
+})();
 </script>
 </body>
 </html>
