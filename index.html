@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WFIGS Daily Perimeters</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #f4f4f4; color: #222; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.card-grid { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; padding: 2rem; }
+.card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 280px; overflow: hidden; text-decoration: none; color: inherit; transition: box-shadow 0.2s, transform 0.2s; }
+.card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.15); transform: translateY(-2px); }
+.card-header { background: #8b1a1a; color: #fff; padding: 1.25rem 1.5rem; }
+.card-header h2 { font-size: 1.1rem; margin-bottom: 0.25rem; }
+.card-header .icon { font-size: 1.6rem; margin-bottom: 0.5rem; }
+.card-body { padding: 1.25rem 1.5rem; font-size: 0.875rem; color: #555; line-height: 1.5; }
+header { text-align: center; padding: 2.5rem 1rem 0; }
+header h1 { font-size: 1.6rem; color: #8b1a1a; }
+header p { margin-top: 0.4rem; color: #666; font-size: 0.9rem; }
+footer { margin-top: 2rem; font-size: 0.75rem; color: #aaa; padding-bottom: 2rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔥 WFIGS Daily Perimeters</h1>
+  <p>Wildland Fire Interagency Geospatial System — daily fire perimeter data</p>
+</header>
+
+<div class="card-grid">
+  <a class="card" href="fire_explorer.html">
+    <div class="card-header">
+      <div class="icon">🗺️</div>
+      <h2>Fire Explorer</h2>
+    </div>
+    <div class="card-body">
+      Browse all fires, explore acreage and personnel over time, and visualize the evolution of fire perimeters on an interactive map.
+    </div>
+  </a>
+
+  <a class="card" href="data_dictionary.html">
+    <div class="card-header">
+      <div class="icon">📖</div>
+      <h2>Data Dictionary</h2>
+    </div>
+    <div class="card-body">
+      Searchable reference for all 122 columns — descriptions, data types, and summary statistics derived from the full dataset.
+    </div>
+  </a>
+</div>
+
+<footer>Data source: WFIGS_Daily_Perimeters_Public · FeatureServer/0</footer>
+</body>
+</html>
