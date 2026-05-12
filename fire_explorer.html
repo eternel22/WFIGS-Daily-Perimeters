@@ -550,6 +550,10 @@ function renderReportTable(data) {
     cols.map(c => {
       const v = s[c];
       if (v == null) return `<td><span class="no-poly">—</span></td>`;
+      // Unix ms timestamps fall between ~9.5e11 (year 2000) and ~2.2e12 (year 2040)
+      if (typeof v === "number" && v > 9.5e11 && v < 2.2e12) {
+        return `<td>${new Date(v).toISOString().replace('T', ' ').slice(0, 19)} UTC</td>`;
+      }
       return `<td${typeof v === "number" ? ' class="num"' : ""}>${escHtml(String(v))}</td>`;
     }).join("")
   }</tr>`).join("");
@@ -863,10 +867,10 @@ function updateNavLabel() {
   }
 
   const p = fireData?.polygons?.[curPeriod];
-  const date    = p?.d || "—";
-  const acres   = p?.aa ?? p?.ga;   // poly_Acres_AutoCalc (geodesic area of polygon), fallback to poly_GISAcres
+  const dateStr = p?.d ? ` · ${p.d}` : "";
+  const acres   = p?.aa ?? p?.ga;
   const acreStr = acres != null ? ` · ${acres.toLocaleString(undefined, {maximumFractionDigits: 0})} acres (polygon)` : "";
-  el.textContent = `Period ${curPeriod + 1} of ${n} · ${date}${acreStr}`;
+  el.textContent = `Period ${curPeriod + 1} of ${n}${dateStr}${acreStr}`;
 
   prev.disabled = curPeriod === 0;
   next.disabled = curPeriod === n - 1;

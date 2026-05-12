@@ -45,9 +45,10 @@ gdf["_poly_ts"]    = unix_ms_to_dt(gdf["poly_PolygonDateTime"])
 gdf["_out_ts"]     = unix_ms_to_dt(gdf["attr_FireOutDateTime"])
 gdf["_created_ts"] = unix_ms_to_dt(gdf["attr_CreatedOnDateTime_dt"])
 
-# Best date per report: polygon capture date, else discovery date
+# Fallback timestamp used only for fire_end when FireOutDateTime is missing
 gdf["_report_ts"] = gdf["_poly_ts"].fillna(gdf["_disc_ts"]).fillna(gdf["_created_ts"])
-gdf["_report_date"] = gdf["_report_ts"].dt.strftime("%Y-%m-%d").where(gdf["_report_ts"].notna(), None)
+# Displayed date: poly_PolygonDateTime only; None when not available
+gdf["_report_date"] = gdf["_poly_ts"].dt.strftime("%Y-%m-%d %H:%M").where(gdf["_poly_ts"].notna(), None)
 
 # Ensure a non-null group key
 gdf["_uid"] = gdf["attr_UniqueFireIdentifier"].fillna("").astype(str).str.strip()
@@ -138,7 +139,7 @@ for uid, grp in tqdm(groups, desc="Fires", unit="fire"):
     # BurnPeriod is the authoritative sequential index for daily snapshots.
     # Fall back to poly_PolygonDateTime, then attr_FireDiscoveryDateTime for records missing it.
     grp = grp.sort_values(
-        ["BurnPeriod", "_report_ts"],
+        "BurnPeriod",
         ascending=True,
         na_position="last",
     ).reset_index(drop=True)
