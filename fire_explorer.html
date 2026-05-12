@@ -283,7 +283,7 @@ function onSearch() {
     (!q || f.name.toLowerCase().includes(q) || f.uid.toLowerCase().includes(q)) &&
     (!state   || f.state === state) &&
     (!polyOnly || f.np  > 0) &&
-    (!tpOnly   || f.ntp > 0)
+    (!tpOnly   || (f.ntp ?? 0) > 0)
   );
 
   sortData();
