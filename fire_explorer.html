@@ -10,10 +10,10 @@
 body { font-family: system-ui, sans-serif; background: #f4f4f4; color: #222; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 /* ── Header ────────────────────────────────────────────────────────────────── */
-header { background: #8b1a1a; color: #fff; padding: 0.7rem 1.5rem; flex-shrink: 0; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+header { background: #8b1a1a; color: #fff; padding: 0.7rem 1.5rem; flex-shrink: 0; display: flex; align-items: center; gap: 1rem; flex-wrap: nowrap; overflow: hidden; }
 header h1 { font-size: 1.1rem; white-space: nowrap; }
-.hcontrols { display: flex; gap: 0.6rem; align-items: center; flex: 1; flex-wrap: wrap; }
-.hcontrols input { padding: 0.3rem 0.7rem; border: none; border-radius: 4px; font-size: 0.85rem; width: 260px; }
+.hcontrols { display: flex; gap: 0.6rem; align-items: center; flex: 1; flex-wrap: nowrap; min-width: 0; }
+.hcontrols input { padding: 0.3rem 0.7rem; border: none; border-radius: 4px; font-size: 0.85rem; width: 200px; flex-shrink: 0; }
 .hcontrols select { padding: 0.3rem 0.5rem; border: none; border-radius: 4px; font-size: 0.85rem; }
 #result-count { font-size: 0.8rem; opacity: 0.8; margin-left: auto; white-space: nowrap; }
 
@@ -22,7 +22,7 @@ main { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
 
 /* ── Fire list ─────────────────────────────────────────────────────────────── */
 #list-panel { display: flex; flex-direction: column; background: #fff; border-bottom: 2px solid #c0392b; flex-shrink: 0; max-height: 40vh; }
-.table-wrap { overflow-y: auto; flex: 1; }
+.table-wrap { overflow-y: auto; overflow-x: auto; flex: 1; }
 table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 thead { position: sticky; top: 0; background: #2c2c2c; color: #fff; z-index: 2; }
 th { padding: 0.5rem 0.8rem; text-align: left; cursor: pointer; user-select: none; white-space: nowrap; }
@@ -49,7 +49,15 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ── Detail panel ──────────────────────────────────────────────────────────── */
 #detail-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-#detail-empty { display: flex; align-items: center; justify-content: center; flex: 1; color: #aaa; font-size: 1rem; }
+#detail-empty { display: flex; align-items: center; justify-content: center; flex: 1; overflow: hidden; }
+#empty-content { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; width: min(680px, 100%); padding: 1rem 1.5rem; }
+#empty-stats { display: flex; gap: 3.5rem; }
+#hists-row { display: flex; gap: 1.5rem; width: 100%; }
+.hist-wrap { flex: 1; height: 180px; position: relative; min-width: 0; }
+.estat-card { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
+.estat-num { font-size: 2.2rem; font-weight: 700; color: #8b1a1a; line-height: 1; }
+.estat-label { font-size: 0.72rem; color: #999; text-transform: uppercase; letter-spacing: 0.07em; }
+#es-range { font-size: 1.05rem; }
 #detail-body { display: none; flex: 1; flex-direction: column; overflow: hidden; }
 #detail-header { background: #2c2c2c; color: #fff; padding: 0.5rem 1rem; font-size: 0.9rem; display: flex; align-items: center; gap: 0.8rem; flex-shrink: 0; }
 #detail-header .fire-uid { font-family: monospace; font-size: 0.78rem; opacity: 0.7; }
@@ -89,6 +97,15 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 #spinner.show { display: flex; }
 .spin-box { background: #fff; padding: 1.5rem 2rem; border-radius: 6px; font-size: 0.9rem; color: #555; }
 
+/* ── Report view (per-fire) ────────────────────────────────────────────────── */
+#list-view { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+#report-view { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+#report-header { display: flex; align-items: center; gap: 0.8rem; padding: 0.45rem 1rem; background: #f0f0f0; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+#back-btn { padding: 0.22rem 0.65rem; background: #8b1a1a; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.82rem; }
+#back-btn:hover { background: #6d1414; }
+#report-title { font-size: 0.88rem; font-weight: 600; color: #333; }
+#report-table th { cursor: default; }
+
 /* ── Loading state ─────────────────────────────────────────────────────────── */
 #not-ready { display: none; text-align: center; padding: 2rem; color: #888; }
 </style>
@@ -100,11 +117,11 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   <div class="hcontrols">
     <input type="text" id="search" placeholder="Search fire name or UID…" oninput="onSearch()">
     <select id="state-filter" onchange="onSearch()"><option value="">All states</option></select>
-    <label style="font-size:0.8rem;opacity:0.8">
-      <input type="checkbox" id="has-poly-filter" onchange="onSearch()"> Polygon only
-    </label>
+    <span style="display:flex;gap:0.9rem;align-items:center;font-size:0.8rem;opacity:0.8;white-space:nowrap;">
+      <label><input type="checkbox" id="has-poly-filter" onchange="onSearch()"> Polygon only</label>
+      <label><input type="checkbox" id="has-tp-filter"   onchange="onSearch()"> Personnel only</label>
+    </span>
     <span id="result-count"></span>
-    <span id="global-stats" style="font-size:0.8rem;opacity:0.7;margin-left:0.5rem;white-space:nowrap;"></span>
   </div>
 </header>
 
@@ -115,27 +132,55 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   </div>
 
   <div id="list-panel">
-    <div class="table-wrap">
-      <table id="fire-table">
-        <thead>
-          <tr>
-            <th onclick="sortBy('name')"   data-col="name" >Fire Name <span class="sort-icon">↕</span></th>
-            <th onclick="sortBy('state')"  data-col="state">State <span class="sort-icon">↕</span></th>
-            <th onclick="sortBy('start')"  data-col="start">Start <span class="sort-icon">↕</span></th>
-            <th onclick="sortBy('end')"    data-col="end"  >End <span class="sort-icon">↕</span></th>
-            <th onclick="sortBy('n')"      data-col="n"    >Reports <span class="sort-icon">↕</span></th>
-            <th onclick="sortBy('np')"     data-col="np"   >w/ Polygon <span class="sort-icon">↕</span></th>
-            <th onclick="sortBy('acres')"  data-col="acres">Final Acres <span class="sort-icon">↕</span></th>
-          </tr>
-        </thead>
-        <tbody id="fire-tbody"></tbody>
-      </table>
+    <div id="list-view">
+      <div class="table-wrap">
+        <table id="fire-table">
+          <thead>
+            <tr>
+              <th onclick="sortBy('name')"   data-col="name" >Fire Name <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('state')"  data-col="state">State <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('start')"  data-col="start">Start <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('end')"    data-col="end"  >End <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('n')"      data-col="n"    >Reports <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('np')"     data-col="np"   >w/ Polygon <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('acres')"  data-col="acres" >Final Acres <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('tp_min')" data-col="tp_min">Min Personnel <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('tp_max')" data-col="tp_max">Max Personnel <span class="sort-icon">↕</span></th>
+            </tr>
+          </thead>
+          <tbody id="fire-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
     </div>
-    <div class="pagination" id="pagination"></div>
+    <div id="report-view" style="display:none">
+      <div id="report-header">
+        <button id="back-btn" onclick="backToList()">← All Fires</button>
+        <span id="report-title"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="report-table">
+          <thead><tr></tr></thead>
+          <tbody id="report-tbody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <div id="detail-panel">
-    <div id="detail-empty">← Select a fire to explore its evolution</div>
+    <div id="detail-empty">
+      <div id="empty-content">
+        <div id="empty-stats">
+          <div class="estat-card"><span class="estat-num" id="es-fires">—</span><span class="estat-label">Fires</span></div>
+          <div class="estat-card"><span class="estat-num" id="es-reports">—</span><span class="estat-label">Reports</span></div>
+          <div class="estat-card"><span class="estat-num" id="es-range">—</span><span class="estat-label">Date Range</span></div>
+        </div>
+        <div id="hists-row">
+          <div class="hist-wrap"><canvas id="hist-chart"></canvas></div>
+          <div class="hist-wrap"><canvas id="acres-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
     <div id="detail-body">
       <div id="detail-header">
         <span id="dh-name"></span>
@@ -208,6 +253,8 @@ let curPage    = 0;
 let selectedFn = null;
 let leafMap    = null;
 let chartInst  = null;
+let histChart  = null;
+let acresChart = null;
 let polyLayers = [];
 let curPeriod  = -1;   // -1 = all
 let fireData   = null;
@@ -222,27 +269,126 @@ let fireData   = null;
     o.value = o.textContent = s;
     sel.appendChild(o);
   });
-  const totalReports = FIRES_INDEX.reduce((s, f) => s + f.n, 0);
-  document.getElementById("global-stats").textContent =
-    `${totalReports.toLocaleString()} total reports`;
   onSearch();
 })();
 
 // ── Search / filter ────────────────────────────────────────────────────────
 function onSearch() {
-  const q     = document.getElementById("search").value.toLowerCase();
-  const state = document.getElementById("state-filter").value;
+  const q       = document.getElementById("search").value.toLowerCase();
+  const state   = document.getElementById("state-filter").value;
   const polyOnly = document.getElementById("has-poly-filter").checked;
+  const tpOnly   = document.getElementById("has-tp-filter").checked;
 
   filtered = (FIRES_INDEX || []).filter(f =>
     (!q || f.name.toLowerCase().includes(q) || f.uid.toLowerCase().includes(q)) &&
-    (!state || f.state === state) &&
-    (!polyOnly || f.np > 0)
+    (!state   || f.state === state) &&
+    (!polyOnly || f.np  > 0) &&
+    (!tpOnly   || f.ntp > 0)
   );
 
   sortData();
   curPage = 0;
   renderTable();
+  updateEmptyStats();
+}
+
+function updateEmptyStats() {
+  const n       = filtered.length;
+  const reports = filtered.reduce((s, f) => s + f.n, 0);
+  const starts  = filtered.map(f => f.start).filter(Boolean).sort();
+  const ends    = filtered.map(f => f.end).filter(Boolean).sort();
+  const lo = starts[0] || "—";
+  const hi = ends[ends.length - 1] || "—";
+  document.getElementById("es-fires").textContent   = n.toLocaleString();
+  document.getElementById("es-reports").textContent = reports.toLocaleString();
+  document.getElementById("es-range").textContent   = lo === hi ? lo : `${lo} – ${hi}`;
+  renderHistogram();
+  renderAcresHistogram();
+}
+
+function renderHistogram() {
+  const EDGES  = [1, 2, 3, 4, 5, 6, 11, 21, 51, 101, Infinity];
+  const LABELS = ['1','2','3','4','5','6–10','11–20','21–50','51–100','100+'];
+
+  const counts = new Array(LABELS.length).fill(0);
+  for (const f of filtered) {
+    for (let i = 0; i < EDGES.length - 1; i++) {
+      if (f.n >= EDGES[i] && f.n < EDGES[i + 1]) { counts[i]++; break; }
+    }
+  }
+
+  if (histChart) { histChart.destroy(); histChart = null; }
+
+  const ctx = document.getElementById("hist-chart").getContext("2d");
+  histChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: LABELS,
+      datasets: [{ data: counts, backgroundColor: "rgba(139,26,26,0.75)",
+                   borderColor: "#8b1a1a", borderWidth: 1, borderRadius: 2 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => `${items[0].label} report${items[0].label === '1' ? '' : 's'} per fire`,
+            label: c    => `${c.parsed.y.toLocaleString()} fire${c.parsed.y !== 1 ? 's' : ''}`,
+          },
+        },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Reports per fire', font: { size: 11 } },
+             ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { title: { display: true, text: 'Fires', font: { size: 11 } },
+             ticks: { font: { size: 10 }, precision: 0 }, beginAtZero: true },
+      },
+    },
+  });
+}
+
+function renderAcresHistogram() {
+  const EDGES  = [0, 10, 100, 1000, 10000, 100000, Infinity];
+  const LABELS = ['<10','10–100','100–1K','1K–10K','10K–100K','>100K'];
+
+  const counts = new Array(LABELS.length).fill(0);
+  for (const f of filtered) {
+    if (f.acres == null) continue;
+    for (let i = 0; i < EDGES.length - 1; i++) {
+      if (f.acres >= EDGES[i] && f.acres < EDGES[i + 1]) { counts[i]++; break; }
+    }
+  }
+
+  if (acresChart) { acresChart.destroy(); acresChart = null; }
+
+  const ctx = document.getElementById("acres-chart").getContext("2d");
+  acresChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: LABELS,
+      datasets: [{ data: counts, backgroundColor: "rgba(139,26,26,0.75)",
+                   borderColor: "#8b1a1a", borderWidth: 1, borderRadius: 2 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => `${items[0].label} acres`,
+            label: c    => `${c.parsed.y.toLocaleString()} fire${c.parsed.y !== 1 ? 's' : ''}`,
+          },
+        },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Final acres', font: { size: 11 } },
+             ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { title: { display: true, text: 'Fires', font: { size: 11 } },
+             ticks: { font: { size: 10 }, precision: 0 }, beginAtZero: true },
+      },
+    },
+  });
 }
 
 // ── Sort ───────────────────────────────────────────────────────────────────
@@ -296,10 +442,13 @@ function renderTable() {
       <td class="num">${f.n}</td>
       <td class="num">${f.np > 0 ? f.np : '<span class="no-poly">—</span>'}</td>
       <td class="num">${fmtAcres(f.acres)}</td>
+      <td class="num">${f.tp_min != null ? f.tp_min.toLocaleString() : '<span class="no-poly">—</span>'}</td>
+      <td class="num">${f.tp_max != null ? f.tp_max.toLocaleString() : '<span class="no-poly">—</span>'}</td>
     </tr>`).join("");
 
+  const totalReports = filtered.reduce((s, f) => s + f.n, 0);
   document.getElementById("result-count").textContent =
-    `${filtered.length.toLocaleString()} fire${filtered.length !== 1 ? 's' : ''}`;
+    `${filtered.length.toLocaleString()} fire${filtered.length !== 1 ? 's' : ''} · ${totalReports.toLocaleString()} reports`;
 
   renderPagination();
 }
@@ -376,12 +525,43 @@ function loadFire(fn, name, state, uid) {
 
 // ── Render detail ──────────────────────────────────────────────────────────
 function renderDetail(data) {
+  if (histChart)  { histChart.destroy();  histChart  = null; }
+  if (acresChart) { acresChart.destroy(); acresChart = null; }
   document.getElementById("detail-empty").style.display = "none";
   document.getElementById("detail-body").style.display  = "flex";
 
   buildIndexMaps(data);
   renderChart(data.series);
   renderMap(data.polygons);
+  renderReportTable(data);
+}
+
+function renderReportTable(data) {
+  document.getElementById("report-title").textContent = data.name;
+
+  const cols = data.cols || [];
+
+  document.querySelector("#report-table thead tr").innerHTML =
+    cols.map(c => `<th>${escHtml(c)}</th>`).join("");
+
+  const sorted = [...data.series].sort((a, b) => (a.bp ?? 0) - (b.bp ?? 0));
+
+  document.getElementById("report-tbody").innerHTML = sorted.map(s => `<tr>${
+    cols.map(c => {
+      const v = s[c];
+      if (v == null) return `<td><span class="no-poly">—</span></td>`;
+      return `<td${typeof v === "number" ? ' class="num"' : ""}>${escHtml(String(v))}</td>`;
+    }).join("")
+  }</tr>`).join("");
+
+  document.getElementById("list-view").style.display = "none";
+  document.getElementById("report-view").style.display = "flex";
+}
+
+function backToList() {
+  document.getElementById("report-view").style.display = "none";
+  document.getElementById("list-view").style.display = "";
+  closeDetail();
 }
 
 // ── Chart ──────────────────────────────────────────────────────────────────
@@ -596,9 +776,14 @@ function renderMap(polygons) {
     polyLayers.unshift(layer); // keep polyLayers[i] = polygons[i]
   }
 
-  // Fit bounds to outermost polygon (newest = largest)
-  try { leafMap.fitBounds(polyLayers[n - 1].getBounds(), { padding: [20, 20] }); }
-  catch (e) {}
+  // Fit bounds to outermost polygon (newest = largest).
+  // Deferred so the browser has finished laying out the map container before
+  // Leaflet reads its size — otherwise fitBounds miscalculates the zoom level.
+  const boundsLayer = polyLayers[n - 1];
+  requestAnimationFrame(() => {
+    try { leafMap.invalidateSize(); leafMap.fitBounds(boundsLayer.getBounds(), { padding: [20, 20] }); }
+    catch (e) {}
+  });
 
   // Slider setup
   slider.min = 0;
@@ -693,6 +878,7 @@ function closeDetail() {
   document.getElementById("detail-body").style.display  = "none";
   document.querySelectorAll("#fire-tbody tr").forEach(tr => tr.classList.remove("selected"));
   selectedFn = null;
+  updateEmptyStats();
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────

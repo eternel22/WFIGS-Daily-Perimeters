@@ -69,6 +69,30 @@ def iv(val):
     except (TypeError, ValueError):
         return None
 
+def sv(val):
+    """Serialize any scalar column value to a JSON-safe Python type."""
+    if isinstance(val, pd.Timestamp):
+        return None if pd.isna(val) else str(val)[:10]
+    if isinstance(val, np.integer):
+        return int(val)
+    if isinstance(val, np.floating):
+        v = float(val)
+        return None if np.isnan(v) else v
+    if isinstance(val, np.bool_):
+        return bool(val)
+    if val is None:
+        return None
+    if isinstance(val, float):
+        return None if np.isnan(val) else val
+    if isinstance(val, (int, str, bool)):
+        return val
+    try:
+        if pd.isna(val):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return str(val)
+
 def first_str(series):
     vals = series.dropna().astype(str).str.strip()
     vals = vals[vals != ""]
@@ -99,6 +123,10 @@ def unique_fname(uid: str) -> str:
         return base
     fname_counter[base] += 1
     return f"{base}_{fname_counter[base]}"
+
+# ── Column list for full export ───────────────────────────────────────────────
+# All original data columns (excluding geometry and internal _* helper columns)
+data_cols = [c for c in gdf.columns if not c.startswith("_") and c != gdf.geometry.name]
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 print("Grouping and exporting fires…")
@@ -137,18 +165,25 @@ for uid, grp in tqdm(groups, desc="Fires", unit="fire"):
             break
 
     has_geom = grp.geometry.notna() & ~grp.geometry.is_empty
+    tp_vals = pd.to_numeric(grp["attr_TotalIncidentPersonnel"], errors="coerce").dropna()
+    ntp    = len(tp_vals)
+    tp_min = int(tp_vals.min()) if ntp else None
+    tp_max = int(tp_vals.max()) if ntp else None
 
     # ── Time series (one entry per report) ────────────────────────────────────
     series = []
     for _, row in grp.iterrows():
-        series.append({
+        entry = {
             "bp": iv(row.get("BurnPeriod")),
             "d":  row["_report_date"],
             "is": fv(row.get("attr_IncidentSize")),
             "ga": fv(row.get("poly_GISAcres")),
             "aa": fv(row.get("poly_Acres_AutoCalc")),
             "tp": iv(row.get("attr_TotalIncidentPersonnel")),
-        })
+        }
+        for col in data_cols:
+            entry[col] = sv(row[col])
+        series.append(entry)
 
     # ── Polygons (only rows with valid geometry) ──────────────────────────────
     polygons = []
@@ -169,6 +204,7 @@ for uid, grp in tqdm(groups, desc="Fires", unit="fire"):
         "uid":      str(uid),
         "name":     name,
         "state":    state,
+        "cols":     data_cols,
         "series":   series,
         "polygons": polygons,
     }
@@ -188,7 +224,10 @@ for uid, grp in tqdm(groups, desc="Fires", unit="fire"):
         "end":   fire_end   or "",
         "n":     len(grp),
         "np":    int(has_geom.sum()),
-        "acres": final_acres,
+        "ntp":    ntp,
+        "tp_min": tp_min,
+        "tp_max": tp_max,
+        "acres":  final_acres,
     })
 
 # ── Write index ───────────────────────────────────────────────────────────────
